@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OnTheSpot — Hyperlocal Emergency & Instant Service Dispatch</title>
+  <meta name="description" content="Instant roadside assistance, emergency puncture, mechanics, electricians, locksmiths and 24x7 medical help on the spot in minutes.">
+  <meta name="theme-color" content="#0d1117">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body class="dark-theme">
+  <!-- Audio FX Toggle & Ambient Radar Audio -->
+  <div id="sound-control" class="sound-pill" title="Toggle Sound FX">
+    <i data-lucide="volume-2" id="sound-icon"></i>
+    <span>Sound FX</span>
+  </div>
+
+  <!-- SOS Emergency Banner Trigger -->
+  <button id="sos-top-btn" class="sos-floating-pill" aria-label="Emergency SOS Mode">
+    <span class="sos-pulse-ring"></span>
+    <i data-lucide="alert-triangle"></i>
+    <span class="sos-text">SOS EMERGENCY</span>
+  </button>
+
+  <!-- Main Container -->
+  <div class="app-layout">
+    
+    <!-- Left Sidebar: Controls & Spot Listings -->
+    <aside class="sidebar" id="sidebar">
+      <!-- Header -->
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-logo">
+            <div class="logo-radar"></div>
+            <i data-lucide="map-pin" class="logo-icon"></i>
+          </div>
+          <div>
+            <h1 class="brand-title">OnThe<span>Spot</span></h1>
+            <p class="brand-subtitle">Hyperlocal Emergency & Instant Services</p>
+          </div>
+        </div>
+        <div class="header-actions" style="flex-wrap: wrap; justify-content: flex-end;">
+          <button id="lang-switcher" class="btn btn-ghost btn-sm" title="Switch Language">
+            <i data-lucide="languages"></i>
+            <span>HI</span>
+          </button>
+          <button id="diagnose-trigger" class="btn btn-secondary btn-sm" title="Smart Breakdown Diagnostic Wizard">
+            <i data-lucide="stethoscope"></i>
+            <span class="lang-text" data-en="Diagnose" data-hi="Problem Batao">Diagnose</span>
+          </button>
+          <button id="ratecard-trigger" class="btn btn-secondary btn-sm" title="Fair Roadside Rate Card">
+            <i data-lucide="receipt"></i>
+            <span class="lang-text" data-en="Rate Card" data-hi="Rate Card">Rate Card</span>
+          </button>
+          <button id="add-spot-trigger" class="btn btn-primary btn-sm" title="Register your service spot">
+            <i data-lucide="plus-circle"></i>
+            <span class="lang-text" data-en="Add Spot" data-hi="Spot Jodo">Add Spot</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Location Bar -->
+      <div class="location-banner">
+        <div class="loc-indicator">
+          <span class="status-dot ping"></span>
+          <span class="loc-label" id="current-location-text">Detecting your location...</span>
+        </div>
+        <button id="refresh-gps-btn" class="btn-icon" title="Refresh GPS Location">
+          <i data-lucide="locate-fixed"></i>
+        </button>
+      </div>
+
+      <!-- Quick Category Filters -->
+      <div class="category-carousel-wrapper">
+        <div class="category-carousel" id="category-filters">
+          <button class="cat-pill active" data-cat="all">
+            <span class="cat-icon">⚡</span>
+            <span>All Nearby</span>
+            <span class="cat-count" id="count-all">0</span>
+          </button>
+          <button class="cat-pill" data-cat="puncture">
+            <span class="cat-icon">🔧</span>
+            <span>Puncture & Tyre</span>
+            <span class="cat-count" id="count-puncture">0</span>
+          </button>
+          <button class="cat-pill" data-cat="towing">
+            <span class="cat-icon">🚗</span>
+            <span>Towing & Breakdown</span>
+            <span class="cat-count" id="count-towing">0</span>
+          </button>
+          <button class="cat-pill" data-cat="mechanic">
+            <span class="cat-icon">🛵</span>
+            <span>Mobile Mechanic</span>
+            <span class="cat-count" id="count-mechanic">0</span>
+          </button>
+          <button class="cat-pill" data-cat="locksmith">
+            <span class="cat-icon">🔑</span>
+            <span>Locksmith / Keys</span>
+            <span class="cat-count" id="count-locksmith">0</span>
+          </button>
+          <button class="cat-pill" data-cat="electrician">
+            <span class="cat-icon">💡</span>
+            <span>Emergency Electrician</span>
+            <span class="cat-count" id="count-electrician">0</span>
+          </button>
+          <button class="cat-pill" data-cat="medical">
+            <span class="cat-icon">🏥</span>
+            <span>24x7 Chemist / Aid</span>
+            <span class="cat-count" id="count-medical">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search & Radius Filter -->
+      <div class="search-filter-box">
+        <div class="search-input-wrapper">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="text" id="search-input" placeholder="Search technician, shop name, or issue...">
+          <button id="clear-search" class="btn-clear hidden">&times;</button>
+        </div>
+        <div class="filter-controls">
+          <div class="radius-slider-group">
+            <div class="slider-label">
+              <span>Radius:</span>
+              <strong id="radius-val">5 km</strong>
+            </div>
+            <input type="range" id="radius-slider" min="1" max="25" value="5" step="1">
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="open-only-toggle" checked>
+            <span class="switch-slider"></span>
+            <span class="toggle-text">Available Now</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Results Count & Radar Radar Ping Animation Indicator -->
+      <div class="results-header">
+        <div class="results-count-title">
+          <span id="spots-found-count">Scanning...</span>
+          <span class="verified-tag"><i data-lucide="shield-check"></i> Nearby Emergency Responders</span>
+        </div>
+        <div class="sort-select-wrapper">
+          <select id="sort-select">
+            <option value="distance">Nearest First</option>
+            <option value="rating">Top Rated</option>
+            <option value="eta">Fastest Arrival</option>
+            <option value="price">Lowest Base Rate</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Spot Cards Container -->
+      <div class="spots-list-container" id="spots-list">
+        <!-- Rendered dynamically by app.js -->
+        <div style="font-size: 0.75rem; color: #64748b; padding: 12px 20px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05);">
+          Disclaimer: Not a replacement for 112 emergency services. Auto-dispatches are simulated.
+        </div>
+      </div>
+    </aside>
+
+    <!-- Map Viewport Container -->
+    <main class="map-wrapper" id="map-container">
+      <div id="map"></div>
+
+      <!-- Floating Radar Sweep Overlay -->
+      <div class="radar-scan-overlay" id="radar-scan">
+        <div class="radar-ring r1"></div>
+        <div class="radar-ring r2"></div>
+        <div class="radar-ring r3"></div>
+        <div class="radar-sweep"></div>
+      </div>
+
+      <!-- Floating Map Action Buttons -->
+      <div class="map-floating-controls">
+        <button id="survival-mode-trigger" class="map-float-btn" title="Low Battery Survival Mode">
+          <i data-lucide="battery-low"></i>
+          <span class="float-tooltip">Survival Mode</span>
+        </button>
+        <button id="voice-sos-btn" class="map-float-btn critical-btn" title="Voice SOS (Speak your emergency)">
+          <i data-lucide="mic"></i>
+          <span class="float-tooltip">Voice SOS</span>
+        </button>
+        <button id="hazard-strobe-btn" class="map-float-btn warning-btn" title="Highway Hazard Strobe">
+          <i data-lucide="sun"></i>
+          <span class="float-tooltip">Hazard Strobe</span>
+        </button>
+        <button id="recenter-map-btn" class="map-float-btn" title="Center to My Location">
+          <i data-lucide="crosshair"></i>
+          <span class="float-tooltip">My Location</span>
+        </button>
+        <button id="radar-toggle-btn" class="map-float-btn active" title="Toggle Radar Pulse">
+          <i data-lucide="radar"></i>
+          <span class="float-tooltip">Radar Scan</span>
+        </button>
+        <button id="simulate-breakdown-btn" class="map-float-btn warning-btn" title="Simulate Emergency Vehicle Breakdown">
+          <i data-lucide="flame"></i>
+          <span class="float-tooltip">Simulate Flat Tyre!</span>
+        </button>
+      </div>
+
+      <!-- Mobile Bottom Sheet Drag Bar (for mobile view) -->
+      <div class="mobile-sheet-tab" id="mobile-sheet-toggle">
+        <div class="drag-handle"></div>
+        <div class="sheet-title-row">
+          <span id="mobile-spot-summary">Nearby Helpers (8 available)</span>
+          <i data-lucide="chevron-up" id="sheet-arrow"></i>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Dispatch Tracking Modal / Banner (When a service is booked) -->
+  <div id="dispatch-tracker-modal" class="dispatch-modal hidden">
+    <div class="dispatch-card">
+      <div class="dispatch-header">
+        <div class="pulse-indicator">
+          <span class="live-dot"></span>
+          <span>ON THE SPOT DISPATCH</span>
+        </div>
+        <button id="close-dispatch-btn" class="btn-icon">&times;</button>
+      </div>
+
+      <div class="eta-banner">
+        <div class="eta-circle">
+          <span id="tracker-eta-mins">7</span>
+          <small>MINS</small>
+        </div>
+        <div class="eta-details">
+          <h3 id="tracker-status-title">Helper Dispatched</h3>
+          <p id="tracker-status-desc">Technician is en route on motorcycle with toolkit.</p>
+          <div class="progress-bar">
+            <div class="progress-fill" id="tracker-progress"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="driver-profile-card">
+        <img id="tracker-driver-img" src="" alt="Driver" class="driver-avatar">
+        <div class="driver-info">
+          <h4 id="tracker-driver-name">Ramesh Kumar</h4>
+          <p id="tracker-driver-spec">Puncture & Mobile Mechanic</p>
+          <div class="driver-rating">
+            <span class="stars">★ 4.9</span>
+            <span class="trips">(340+ spot jobs)</span>
+          </div>
+        </div>
+        <div class="driver-actions">
+          <a id="tracker-call-btn" href="#" class="btn btn-call">
+            <i data-lucide="phone-call"></i>
+            <span>Call</span>
+          </a>
+          <button id="tracker-chat-btn" class="btn btn-secondary">
+            <i data-lucide="message-square"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="dispatch-job-details">
+        <div class="detail-row">
+          <span>Service Type:</span>
+          <strong id="tracker-service-name">Tubeless Puncture Repair</strong>
+        </div>
+        <div class="detail-row">
+          <span>Estimated Base Cost:</span>
+          <strong id="tracker-est-cost" class="price-highlight">₹150</strong>
+        </div>
+        <div class="detail-row">
+          <span>Live Coordinates:</span>
+          <span id="tracker-coords" class="code-pill">Tracking GPS...</span>
+        </div>
+        <button id="tracker-share-wa-btn" class="btn btn-secondary btn-sm" style="margin-top: 6px; width: 100%;">
+          <i data-lucide="share-2"></i>
+          <span>Share Status via WhatsApp</span>
+        </button>
+      </div>
+
+      <div class="dispatch-footer">
+        <button id="cancel-dispatch-btn" class="btn btn-ghost btn-danger">Cancel Request</button>
+        <button id="complete-job-btn" class="btn btn-primary">Mark Job Resolved</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOS Emergency Modal -->
+  <div id="sos-modal" class="modal-overlay hidden">
+    <div class="modal-card sos-modal-card">
+      <div class="sos-modal-header">
+        <div class="sos-icon-badge">
+          <i data-lucide="alert-octagon"></i>
+        </div>
+        <div>
+          <h2>Emergency SOS Hub</h2>
+          <p>Instant hotline & roadside breakdown assistance</p>
+        </div>
+        <button id="close-sos-btn" class="btn-close">&times;</button>
+      </div>
+
+      <div class="sos-siren-toggle">
+        <button id="toggle-siren-btn" class="siren-button">
+          <i data-lucide="volume-2" id="siren-icon"></i>
+          <span id="siren-status-text">Play Loud Emergency Alarm</span>
+        </button>
+      </div>
+
+      <div class="sos-numbers-grid">
+        <a href="tel:112" class="sos-number-card critical">
+          <div class="sos-num-icon"><i data-lucide="shield-alert"></i></div>
+          <div class="sos-num-details">
+            <span class="num-title">National Emergency</span>
+            <span class="num-digits">112</span>
+            <small>Police, Fire & Ambulance</small>
+          </div>
+          <i data-lucide="phone-outgoing" class="call-arrow"></i>
+        </a>
+
+        <a href="tel:108" class="sos-number-card medical">
+          <div class="sos-num-icon"><i data-lucide="ambulance"></i></div>
+          <div class="sos-num-details">
+            <span class="num-title">Medical Ambulance</span>
+            <span class="num-digits">108</span>
+            <small>Govt 24x7 Ambulance</small>
+          </div>
+          <i data-lucide="phone-outgoing" class="call-arrow"></i>
+        </a>
+
+        <a href="tel:1033" class="sos-number-card highway">
+          <div class="sos-num-icon"><i data-lucide="truck"></i></div>
+          <div class="sos-num-details">
+            <span class="num-title">National Highway Helpline</span>
+            <span class="num-digits">1033</span>
+            <small>Expressway Breakdown / Tow</small>
+          </div>
+          <i data-lucide="phone-outgoing" class="call-arrow"></i>
+        </a>
+
+        <a href="tel:1091" class="sos-number-card safety">
+          <div class="sos-num-icon"><i data-lucide="user-check"></i></div>
+          <div class="sos-num-details">
+            <span class="num-title">Women Safety Helpline</span>
+            <span class="num-digits">1091</span>
+            <small>24x7 Rapid Response</small>
+          </div>
+          <i data-lucide="phone-outgoing" class="call-arrow"></i>
+        </a>
+      </div>
+
+      <div class="sos-location-box">
+        <div class="sos-loc-header">
+          <i data-lucide="navigation"></i>
+          <strong>Your Current Precise Coordinates to Share:</strong>
+        </div>
+        <div class="coords-display" id="sos-share-coords">Fetching...</div>
+        <div style="display:flex; gap:8px;">
+          <button id="copy-sos-loc-btn" class="btn btn-secondary btn-sm" style="flex:1;">
+            <i data-lucide="copy"></i>
+            <span>Copy GPS</span>
+          </button>
+          <button id="whatsapp-sos-btn" class="btn btn-call btn-sm" style="flex:1.4;">
+            <i data-lucide="send"></i>
+            <span>Distress WhatsApp</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add New Spot Modal -->
+  <div id="add-spot-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2>Register Service Spot</h2>
+          <p>Add your workshop, puncture shop, or freelance emergency service</p>
+        </div>
+        <button id="close-add-spot-btn" class="btn-close">&times;</button>
+      </div>
+
+      <form id="add-spot-form" class="modal-form">
+        <div class="form-group">
+          <label for="new-spot-name">Business / Helper Name *</label>
+          <input type="text" id="new-spot-name" required placeholder="e.g. Sharma Mobile Tyre & Puncture">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="new-spot-category">Service Category *</label>
+            <select id="new-spot-category" required>
+              <option value="puncture">🔧 Puncture & Tyre</option>
+              <option value="mechanic">🛵 Mobile Mechanic</option>
+              <option value="towing">🚗 Towing & Flatbed</option>
+              <option value="locksmith">🔑 Locksmith / Keymaker</option>
+              <option value="electrician">💡 Emergency Electrician</option>
+              <option value="medical">🏥 24x7 Medical / Chemist</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="new-spot-phone">Phone / WhatsApp Number *</label>
+            <input type="tel" id="new-spot-phone" required placeholder="+91 98765 43210">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="new-spot-rate">Base Visiting Rate (₹) *</label>
+            <input type="number" id="new-spot-rate" required placeholder="150" min="50" max="5000">
+          </div>
+          <div class="form-group">
+            <label for="new-spot-eta">Typical Arrival Time (mins)</label>
+            <input type="number" id="new-spot-eta" value="10" min="2" max="60">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Pin Location on Map</label>
+          <p class="form-help">Current pin will be placed at your active GPS position or tap on the map to place.</p>
+          <div class="pin-status-box">
+            <i data-lucide="map-pin"></i>
+            <span id="pin-coords-text">Lat: 0.0000, Lng: 0.0000</span>
+            <button type="button" id="use-gps-pin-btn" class="btn btn-sm btn-ghost">Use My GPS</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="new-spot-desc">Speciality / Services Offered</label>
+          <textarea id="new-spot-desc" rows="2" placeholder="e.g. Tubeless puncher, bike jumpstart, 24/7 night service available"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="cancel-add-spot-btn" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check-circle"></i>
+            <span>Publish Spot on Live Map</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Chat Simulation Modal -->
+  <div id="chat-modal" class="modal-overlay hidden">
+    <div class="modal-card chat-modal-card">
+      <div class="chat-header">
+        <img id="chat-driver-avatar" src="" alt="Driver" class="chat-avatar">
+        <div>
+          <h4 id="chat-driver-name">Helper Name</h4>
+          <span class="online-indicator">🟢 Online • Responds in 1 min</span>
+        </div>
+        <button id="close-chat-btn" class="btn-close">&times;</button>
+      </div>
+      <div class="chat-messages" id="chat-messages-container">
+        <!-- Messages rendered by app.js -->
+      </div>
+      <div class="chat-input-bar">
+        <input type="text" id="chat-user-input" placeholder="Type a message (e.g., I'm stuck near petrol pump)...">
+        <button id="send-chat-btn" class="btn btn-primary btn-sm">
+          <i data-lucide="send"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart Diagnostic Troubleshooter Modal -->
+  <div id="diagnostic-modal" class="modal-overlay hidden">
+    <div class="modal-card diagnostic-modal-card">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="header-icon-badge"><i data-lucide="stethoscope"></i></div>
+          <div>
+            <h2>Vehicle Breakdown Diagnostic Wizard</h2>
+            <p>Select what happened to get an instant diagnosis and recommended technician</p>
+          </div>
+        </div>
+        <button id="close-diagnostic-btn" class="btn-close">&times;</button>
+      </div>
+
+      <div class="symptom-selection-grid">
+        <div class="symptom-card" data-issue="battery">
+          <div class="symptom-icon">🪫</div>
+          <div class="symptom-details">
+            <h4>Battery Dead / Won't Start</h4>
+            <p>Engine clicks, won't crank, lights dim or dead battery.</p>
+          </div>
+        </div>
+
+        <div class="symptom-card" data-issue="puncture">
+          <div class="symptom-icon">🛞</div>
+          <div class="symptom-details">
+            <h4>Flat Tyre / Puncture</h4>
+            <p>Nail in tyre, air pressure zero, sidewall air leak.</p>
+          </div>
+        </div>
+
+        <div class="symptom-card" data-issue="overheating">
+          <div class="symptom-icon">💨</div>
+          <div class="symptom-details">
+            <h4>Overheating / Smoke</h4>
+            <p>Steam/smoke from bonnet, coolant leakage, temp gauge red.</p>
+          </div>
+        </div>
+
+        <div class="symptom-card" data-issue="lockout">
+          <div class="symptom-icon">🔒</div>
+          <div class="symptom-details">
+            <h4>Car Lockout / Key Lost</h4>
+            <p>Keys locked inside vehicle, broken key in ignition, jammed lock.</p>
+          </div>
+        </div>
+
+        <div class="symptom-card" data-issue="breakdown">
+          <div class="symptom-icon">🛑</div>
+          <div class="symptom-details">
+            <h4>Brake / Transmission Jam</h4>
+            <p>Clutch wire broken, brake pedal spongy, car cannot move.</p>
+          </div>
+        </div>
+
+        <div class="symptom-card" data-issue="electrical">
+          <div class="symptom-icon">⚡</div>
+          <div class="symptom-details">
+            <h4>Home MCB / Electrical Fire</h4>
+            <p>Sparks, short-circuit, complete blackout, burning meter.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Diagnostic Result Box -->
+      <div id="diagnostic-result" class="diagnostic-result-box hidden">
+        <div class="diag-header">
+          <span class="status-badge">AI RECOMMENDATION</span>
+          <h3 id="diag-title">Diagnosis Title</h3>
+        </div>
+        <p id="diag-cause" class="diag-desc">Probable cause description...</p>
+        <div class="diag-stats-row">
+          <div>
+            <span>Recommended Helper:</span>
+            <strong id="diag-specialist">Mobile Mechanic</strong>
+          </div>
+          <div>
+            <span>Estimated Fair Cost:</span>
+            <strong id="diag-cost" class="price-highlight">₹200 - ₹300</strong>
+          </div>
+        </div>
+        <button id="diag-dispatch-action" class="btn btn-primary btn-block">
+          <i data-lucide="zap"></i>
+          <span>Auto-Match & Dispatch Closest Helper</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transparent Roadside Rate Card Modal -->
+  <div id="rate-card-modal" class="modal-overlay hidden">
+    <div class="modal-card rate-modal-card">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="header-icon-badge"><i data-lucide="calculator"></i></div>
+          <div>
+            <h2>Fair Rate Card & Cost Estimator</h2>
+            <p>Transparent benchmark pricing to prevent roadside overcharging</p>
+          </div>
+        </div>
+        <button id="close-ratecard-btn" class="btn-close">&times;</button>
+      </div>
+
+      <div class="rates-calculator-wrapper">
+        <div class="rates-list">
+          <label class="rate-item">
+            <input type="checkbox" class="rate-calc-check" data-price="100" checked>
+            <div class="rate-item-info">
+              <strong>Tubeless Tyre Puncture</strong>
+              <small>Includes air refill & vulcanized strip plug</small>
+            </div>
+            <span class="rate-price">₹100</span>
+          </label>
+
+          <label class="rate-item">
+            <input type="checkbox" class="rate-calc-check" data-price="250">
+            <div class="rate-item-info">
+              <strong>Battery Jumpstart</strong>
+              <small>Heavy-duty jumper cables & battery health check</small>
+            </div>
+            <span class="rate-price">₹250</span>
+          </label>
+
+          <label class="rate-item">
+            <input type="checkbox" class="rate-calc-check" data-price="350">
+            <div class="rate-item-info">
+              <strong>Emergency Lock Opening</strong>
+              <small>Specialized slim-jim lock bypass without scratch</small>
+            </div>
+            <span class="rate-price">₹350</span>
+          </label>
+
+          <label class="rate-item">
+            <input type="checkbox" class="rate-calc-check" data-price="700">
+            <div class="rate-item-info">
+              <strong>Flatbed Towing (First 5 km)</strong>
+              <small>Safe hydraulic loading for cars/SUVs (+₹25/km after)</small>
+            </div>
+            <span class="rate-price">₹700</span>
+          </label>
+
+          <label class="rate-item">
+            <input type="checkbox" class="rate-calc-check" data-price="200">
+            <div class="rate-item-info">
+              <strong>Clutch / Accelerator Wire Replacement</strong>
+              <small>Roadside cable replacement for motorcycles</small>
+            </div>
+            <span class="rate-price">₹200</span>
+          </label>
+
+          <label class="rate-item">
+            <input type="checkbox" class="rate-calc-check" data-price="100">
+            <div class="rate-item-info">
+              <strong>Night Emergency Surcharge (11 PM - 6 AM)</strong>
+              <small>Applicable for late-night immediate dispatch</small>
+            </div>
+            <span class="rate-price">₹100</span>
+          </label>
+        </div>
+
+        <div class="calculator-total-bar">
+          <div>
+            <span>Estimated Total:</span>
+            <h3 id="calc-total-amount">₹100</h3>
+          </div>
+          <button id="book-calculated-service-btn" class="btn btn-primary">
+            <span>Find Helper at this Rate</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Verified Digital Assistance Invoice & Receipt Modal -->
+  <div id="receipt-modal" class="modal-overlay hidden">
+    <div class="modal-card receipt-modal-card">
+      <div class="receipt-paper" id="printable-receipt">
+        <div class="receipt-header">
+          <div class="receipt-brand">
+            <h2>OnThe<span>Spot</span></h2>
+            <small>EMERGENCY ASSISTANCE INVOICE</small>
+          </div>
+          <div class="receipt-stamp">PAID & RESOLVED</div>
+        </div>
+
+        <div class="receipt-meta-grid">
+          <div>
+            <span class="lbl">Invoice No:</span>
+            <strong id="receipt-invoice-no">#OTS-2026-8921</strong>
+          </div>
+          <div>
+            <span class="lbl">Date & Time:</span>
+            <strong id="receipt-timestamp">26 Sep 2026, 10:45 AM</strong>
+          </div>
+          <div>
+            <span class="lbl">Customer GPS:</span>
+            <span id="receipt-gps" class="monospace">28.6315, 77.2167</span>
+          </div>
+          <div>
+            <span class="lbl">Payment Mode:</span>
+            <strong class="receipt-pay-mode">UPI / Cash On The Spot</strong>
+          </div>
+        </div>
+
+        <div class="receipt-divider"></div>
+
+        <div class="receipt-provider-section">
+          <span class="lbl">Assigned Technician:</span>
+          <h4 id="receipt-provider-name">Ramesh Sharma Quick Puncture</h4>
+          <p id="receipt-provider-phone">+91 98112 34567 • Nearby (via OpenStreetMap)</p>
+        </div>
+
+        <table class="receipt-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style="text-align:right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="receipt-service-title">Emergency Roadside Response Fee</td>
+              <td style="text-align:right;" id="receipt-base-fee">₹150.00</td>
+            </tr>
+            <tr>
+              <td>On-Site Work & Inspection</td>
+              <td style="text-align:right;">₹0.00</td>
+            </tr>
+            <tr>
+              <td>Platform & SOS Dispatch Fee</td>
+              <td style="text-align:right; color:#10b981;">FREE (Waived)</td>
+            </tr>
+            <tr>
+              <td>GST (18%)</td>
+              <td style="text-align:right;" id="receipt-gst">₹27.00</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <th>Total Paid:</th>
+              <th style="text-align:right;" id="receipt-total">₹177.00</th>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- Dynamic Simulated UPI QR Code for instant payment -->
+        <div class="upi-payment-section">
+          <div class="upi-qr-wrapper">
+            <svg class="upi-qr-svg" viewBox="0 0 100 100" width="80" height="80">
+              <rect width="100" height="100" fill="#ffffff" rx="8"/>
+              <path d="M10 10h30v30h-30z M16 16h18v18h-18z M22 22h6v6h-6z M60 10h30v30h-30z M66 16h18v18h-18z M72 22h6v6h-6z M10 60h30v30h-30z M16 66h18v18h-18z M22 72h6v6h-6z M50 15h6v6h-6z M50 30h6v6h-6z M60 50h10v10h-10z M80 50h10v10h-10z M50 70h10v10h-10z M70 70h20v20h-20z M50 50h6v12h-6z" fill="#0f172a"/>
+            </svg>
+            <div class="upi-text-details">
+              <strong>Scan to Pay via UPI</strong>
+              <small>GPay, PhonePe, Paytm, BHIM</small>
+              <span class="upi-id-badge" id="receipt-upi-id">upi://pay?pa=ots.helper@okhdfcbank</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="receipt-barcode-box">
+          <div class="barcode-lines">||| | |||| | ||||| || |||||| | |||| |||</div>
+          <small>Digitally Generated by OnTheSpot</small>
+        </div>
+      </div>
+
+      <div class="receipt-actions">
+        <button id="print-receipt-btn" class="btn btn-secondary">
+          <i data-lucide="printer"></i>
+          <span>Print / Save PDF</span>
+        </button>
+        <button id="share-receipt-wa-btn" class="btn btn-call">
+          <i data-lucide="send"></i>
+          <span>Share via WhatsApp</span>
+        </button>
+        <button id="close-receipt-btn" class="btn btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Review & Rating Modal -->
+  <div id="review-modal" class="modal-overlay hidden">
+    <div class="modal-card review-modal-card">
+      <div class="modal-header">
+        <div>
+          <h2>Rate Your Experience</h2>
+          <p>Help the community by rating the technician's arrival and service</p>
+        </div>
+        <button id="close-review-btn" class="btn-close">&times;</button>
+      </div>
+
+      <div class="review-body">
+        <div class="rating-stars" id="star-rating-box">
+          <span class="star active" data-val="1">★</span>
+          <span class="star active" data-val="2">★</span>
+          <span class="star active" data-val="3">★</span>
+          <span class="star active" data-val="4">★</span>
+          <span class="star active" data-val="5">★</span>
+        </div>
+        <p class="rating-caption" id="rating-caption-text">Exceptional! Arrived super fast.</p>
+
+        <div class="review-tags-box">
+          <span class="review-tag selected">⚡ Arrived Under 10 Mins</span>
+          <span class="review-tag selected">💰 Fair & Honest Price</span>
+          <span class="review-tag">🔧 Expert Diagnostic</span>
+          <span class="review-tag">🤝 Polite & Friendly</span>
+          <span class="review-tag">🛡️ Professional Tools</span>
+        </div>
+
+        <textarea id="review-comment" rows="3" placeholder="Write any specific feedback (e.g., fixed my puncture in 5 mins!)..."></textarea>
+
+        <button id="submit-review-btn" class="btn btn-primary btn-block">
+          <i data-lucide="check"></i>
+          <span>Submit Review & Get Receipt</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Highway Hazard Strobe Overlay -->
+  <div id="hazard-strobe-overlay" class="hazard-strobe-overlay hidden">
+    <div class="strobe-text">HAZARD STROBE ACTIVE</div>
+    <button id="stop-strobe-btn" class="btn btn-secondary btn-sm" style="margin-top:20px; z-index:999999;">STOP STROBE</button>
+  </div>
+
+  <!-- Voice SOS Listening Overlay -->
+  <div id="voice-sos-overlay" class="voice-sos-overlay hidden">
+    <div class="mic-pulse">
+      <i data-lucide="mic"></i>
+    </div>
+    <h2 class="voice-sos-text">Listening for emergency...</h2>
+    <p>Try saying: "Puncture", "Battery", or "Help"</p>
+    <button id="stop-voice-btn" class="btn btn-secondary btn-sm" style="margin-top:20px;">Cancel</button>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="js/sound.js"></script>
+  <script src="js/services/OverpassAPI.js"></script>
+  <script src="js/features/EmergencyFeatures.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
