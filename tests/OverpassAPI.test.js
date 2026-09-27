@@ -1,80 +1,81 @@
-/*
-  OverpassAPI.test.js
-  Basic Unit Tests for Data Layer
+/**
+ * @vitest-environment jsdom
+ */
 
-  Note: Requires a test runner like Jest. 
-  Mocking localStorage and fetch for testing environment.
-*/
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import 'fake-indexeddb/auto';
+import { OverpassAPI } from '../js/services/OverpassAPI.js';
 
-const assert = require('assert');
-
-// Mock localStorage
-global.localStorage = {
-  store: {},
-  getItem(key) { return this.store[key] || null; },
-  setItem(key, value) { this.store[key] = value.toString(); },
-  clear() { this.store = {}; }
-};
-
-// Mock OverpassAPI Class structurally for test demo
-class OverpassAPIMock {
-  constructor() {
-    this.cacheKey = 'onthespot_osm_cache';
-    this.cacheExpiryMs = 1000 * 60 * 60 * 2;
-    this.isFetching = false;
-    this.lastFetchTime = 0;
-  }
-  calculateDistance(lat1, lon1, lat2, lon2) {
-    // simplified haversine for testing
-    return 1.5; 
-  }
-  loadFromCache(centerCoords) {
-    const cached = localStorage.getItem(this.cacheKey);
-    if (!cached) return null;
-    const parsed = JSON.parse(cached);
-    if (Date.now() - parsed.timestamp < this.cacheExpiryMs) {
-      return parsed.spots;
-    }
-    return null;
-  }
-  saveToCache(centerCoords, spots) {
-    localStorage.setItem(this.cacheKey, JSON.stringify({
-      center: centerCoords,
-      timestamp: Date.now(),
-      spots: spots
-    }));
-  }
-}
-
-describe('OverpassAPI Data Layer Tests', () => {
+describe('OverpassAPI', () => {
   let api;
 
   beforeEach(() => {
-    localStorage.clear();
-    api = new OverpassAPIMock();
-  });
-
-  it('should return null when cache is empty', () => {
-    const result = api.loadFromCache({ lat: 28.6, lng: 77.2 });
-    assert.strictEqual(result, null);
-  });
-
-  it('should successfully save and load from cache if TTL is valid', () => {
-    const mockSpots = [{ id: 'spot-1', name: 'Test Mechanic' }];
-    api.saveToCache({ lat: 28.6, lng: 77.2 }, mockSpots);
-
-    const loaded = api.loadFromCache({ lat: 28.6, lng: 77.2 });
-    assert.strictEqual(loaded.length, 1);
-    assert.strictEqual(loaded[0].name, 'Test Mechanic');
-  });
-
-  it('should respect debounce timer', () => {
-    api.isFetching = true;
-    api.lastFetchTime = Date.now();
+    // Reset global state
+    global.window = {};
+    api = new OverpassAPI();
+    // Unique cache key for test isolation
+    api.cacheKey = 'onthespot_osm_cache_' + Math.random();
     
-    // In actual implementation, this logic is inside fetchSpots
-    // Here we assert the flag behavior
-    assert.strictEqual(api.isFetching, true);
-    assert.strictEqual(Date.now() - api.lastFetchTime < 10000, true);
+    // Mock fetch
+    global.fetch = vi.fn();
+  });
+
+  it('initializes with correct default values', () => {
+    expect(api.isFetching).toBe(false);
+    expect(api.cacheKey).toMatch(/^onthespot_osm_cache/);
+    expect(api.lastFetchTime).toBe(0);
+  });
+
+  it('handles empty results from OSM gracefully', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ elements: [] })
+    });
+
+    const result = await api.fetchSpots({ lat: 28.6, lng: 77.2 });
+    
+    expect(result.spots).toEqual([]);
+    expect(result.fromCache).toBe(false);
+    expect(api.isFetching).toBe(false);
+  });
+
+  it('parses successful OSM responses correctly', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        elements: [
+          { id: 1, lat: 28.61, lon: 77.21, tags: { name: 'Test Mechanic', shop: 'car_repair', phone: '9999999999' } }
+        ]
+      })
+    });
+
+    const result = await api.fetchSpots({ lat: 28.6, lng: 77.2 });
+    
+    expect(result.spots).toHaveLength(1);
+    expect(result.spots[0].name).toBe('Test Mechanic');
+    expect(result.spots[0].category).toBe('mechanic');
+    expect(result.spots[0].phone).toBe('9999999999');
+    expect(result.fromCache).toBe(false);
+  });
+
+  it('handles network timeouts/errors gracefully', async () => {
+    global.fetch.mockRejectedValueOnce(new Error('Network Error'));
+
+    const result = await api.fetchSpots({ lat: 28.6, lng: 77.2 });
+    
+    expect(result.spots).toEqual([]);
+    expect(result.error).toBeDefined();
+    expect(api.isFetching).toBe(false);
+  });
+
+  it('respects debounce timer to prevent API spam', async () => {
+    api.lastFetchTime = Date.now();
+    api.isFetching = false;
+    
+    const result = await api.fetchSpots({ lat: 28.6, lng: 77.2 });
+    
+    expect(result.spots).toEqual([]);
+    expect(result.error).toBe('throttled');
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

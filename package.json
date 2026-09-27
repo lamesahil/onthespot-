@@ -1,0 +1,29 @@
+{
+  "name": "onthespot",
+  "version": "1.0.0",
+  "description": "<div align=\"center\">   <img src=\"https://img.icons8.com/color/96/000000/siren.png\" alt=\"Logo\" width=\"80\" height=\"80\">   <h1 align=\"center\">OnTheSpot 🚨</h1>   <p align=\"center\">     <strong>Hyperlocal Emergency & Instant Service Dispatch Network</strong>     <br />     A production-grade, framework-less Vanilla JavaScript application built for high-stress scenarios.   </p> </div>",
+  "main": "sw.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lamesahil/onthespot-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/lamesahil/onthespot-/issues"
+  },
+  "homepage": "https://github.com/lamesahil/onthespot-#readme",
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^29.1.1",
+    "vitest": "^5.0.2"
+  }
+}

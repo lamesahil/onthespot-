@@ -3,6 +3,16 @@
    State management, event wiring, dispatch simulations & geolocation
    ========================================================================== */
 
+window.escapeHTML = (str) => {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 class AppEngine {
   constructor() {
     this.userCoords = { lat: 28.6315, lng: 77.2167 }; // Default: New Delhi
@@ -59,13 +69,25 @@ class AppEngine {
 
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
           this.userCoords = {
             lat: parseFloat(pos.coords.latitude.toFixed(4)),
             lng: parseFloat(pos.coords.longitude.toFixed(4))
           };
           locText.textContent = `Live GPS: ${this.userCoords.lat}, ${this.userCoords.lng}`;
           this.showToast(`GPS Location Locked (${this.userCoords.lat}, ${this.userCoords.lng})`, 'success');
+          
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${this.userCoords.lat}&lon=${this.userCoords.lng}&format=json`);
+            const data = await res.json();
+            if (data && data.display_name) {
+              const shortAddr = data.display_name.split(',').slice(0, 3).join(',');
+              locText.textContent = shortAddr;
+            }
+          } catch (e) {
+            console.warn('Reverse geocoding failed', e);
+          }
+          
           callback();
         },
         (err) => {
@@ -569,6 +591,26 @@ class AppEngine {
         this.emergencyFeatures.stopVoiceSOS();
       });
     }
+    
+    // Web Share API
+    const shareBtn = document.getElementById('share-location-btn');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', async () => {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: 'My Location - OnTheSpot Emergency',
+              text: `I need help! My current location is Lat: ${this.userCoords.lat}, Lng: ${this.userCoords.lng}`,
+              url: `https://www.google.com/maps/search/?api=1&query=${this.userCoords.lat},${this.userCoords.lng}`
+            });
+          } catch (err) {
+            console.log('Error sharing:', err);
+          }
+        } else {
+          this.showToast("Web Share not supported on this device.", "warning");
+        }
+      });
+    }
   }
 
   updateCategoryCounts() {
@@ -629,15 +671,15 @@ class AppEngine {
       const isSelected = this.selectedSpot && this.selectedSpot.id === spot.id;
 
       return `
-        <div class="spot-card ${isSelected ? 'selected' : ''}" data-id="${spot.id}">
+        <div class="spot-card ${isSelected ? 'selected' : ''}" data-id="${escapeHTML(spot.id)}">
           <div class="spot-card-top">
             <div class="spot-avatar-wrapper">
-              <img src="${spot.avatar}" alt="${spot.name}" class="spot-avatar">
+              <img src="${escapeHTML(spot.avatar)}" alt="${escapeHTML(spot.name)}" class="spot-avatar">
               <span class="spot-badge-icon">${catInfo.icon}</span>
             </div>
             <div class="spot-info-block">
               <div class="spot-title-row">
-                <h3 class="spot-name">${spot.name}</h3>
+                <h3 class="spot-name">${escapeHTML(spot.name)}</h3>
                 <span class="spot-distance-pill">${spot.distance} km</span>
               </div>
               <div class="spot-category-label">
@@ -651,15 +693,19 @@ class AppEngine {
               </div>
             </div>
           </div>
-          <p class="spot-description-snippet">${spot.specialty}</p>
+          <p class="spot-description-snippet">${escapeHTML(spot.specialty)}</p>
           <div class="spot-actions-bar">
-            <a href="tel:${spot.phone ? spot.phone.replace(/\s+/g, '') : '18001021800'}" class="btn btn-call btn-sm" onclick="event.stopPropagation()" title="Call ${spot.phone}">
+            <a href="tel:${spot.phone ? escapeHTML(spot.phone).replace(/\s+/g, '') : '18001021800'}" class="btn btn-call btn-sm" onclick="event.stopPropagation()" title="Call ${escapeHTML(spot.phone)}">
               <i data-lucide="phone"></i>
-              <span>Call (${spot.phone})</span>
+              <span>Call</span>
+            </a>
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${spot.lat},${spot.lng}" target="_blank" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()" title="Get Directions">
+              <i data-lucide="navigation"></i>
+              <span>Directions</span>
             </a>
             <button class="btn btn-primary btn-sm dispatch-btn" data-id="${spot.id}">
               <i data-lucide="zap"></i>
-              <span>Dispatch Spot</span>
+              <span>Dispatch</span>
             </button>
           </div>
         </div>
@@ -717,6 +763,9 @@ class AppEngine {
   // Breakdown simulation: simulate emergency flat tyre / mechanic needed
   triggerBreakdownSimulation() {
     window.soundEngine.playAlert();
+    if ('vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200, 100, 500]); // SOS haptic pattern
+    }
     this.showToast("⚠️ VEHICLE BREAKDOWN DETECTED! Filtering closest puncture & mechanics.", "danger");
 
     // Switch filter to puncture
@@ -860,7 +909,7 @@ class AppEngine {
     const modal = document.getElementById('chat-modal');
     modal.classList.remove('hidden');
 
-    document.getElementById('chat-driver-avatar').src = this.activeDispatch.avatar;
+    document.getElementById('chat-driver-avatar').src = escapeHTML(this.activeDispatch.avatar);
     document.getElementById('chat-driver-name').textContent = this.activeDispatch.name;
 
     this.renderChatMessages();
@@ -870,8 +919,8 @@ class AppEngine {
   renderChatMessages() {
     const container = document.getElementById('chat-messages-container');
     container.innerHTML = this.chatMessages.map(msg => `
-      <div class="chat-bubble ${msg.sender}">
-        ${msg.text}
+      <div class="chat-bubble ${escapeHTML(msg.sender)}">
+        ${escapeHTML(msg.text)}
       </div>
     `).join('');
     container.scrollTop = container.scrollHeight;
@@ -985,7 +1034,7 @@ class AppEngine {
 
     toast.innerHTML = `
       <i data-lucide="${icons[type] || 'bell'}"></i>
-      <span>${message}</span>
+      <span>${escapeHTML(message)}</span>
     `;
 
     container.appendChild(toast);

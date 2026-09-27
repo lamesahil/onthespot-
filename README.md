@@ -23,12 +23,18 @@ This project avoids generic portfolio fluff and focuses on solving complex engin
 ### 1. Robust Data Layer (No Backend)
 - **Live Overpass API Integration:** Dynamically fetches real nearby businesses (mechanics, pharmacies, locksmiths) based on the user's live GPS coordinates.
 - **Debounce & Throttling:** Implemented a strict request throttle to prevent Overpass API IP bans from rapid map panning or frantic user clicks.
-- **Offline-First Caching (TTL):** Implemented a `localStorage` cache with a 2-hour Time-To-Live (TTL). If the user loses cellular signal on a highway or the API times out, the app instantly falls back to rendering the cached local responders.
+- **Offline-First Caching (TTL):** Implemented an `IndexedDB` cache (falling back to memory) with a 2-hour Time-To-Live (TTL). If the user loses cellular signal on a highway or the API times out, the app instantly falls back to rendering the cached local responders.
 
-### 2. Hardware API Integrations
-- **Web Speech API (Intent Detection):** Features a hands-free "Voice SOS" mode. Instead of generic LLM wrappers, it uses native browser speech recognition to detect emergency intents (e.g., "puncture", "battery", "help") and auto-filters the map instantly.
-- **Battery Status API (Survival Mode):** The app monitors the device's battery level in real-time. If the battery drops below 20%, it auto-triggers a high-contrast, pure-black OLED "Survival Mode" and strips all animations to preserve remaining battery life.
-- **Geolocation API:** High-accuracy GPS tracking with **graceful degradation**. If the user denies location access, the app doesn't break; it falls back to a default central hub with clear UI warnings.
+### 2. Hardware API Integrations (Progressive Enhancement)
+Because this app relies heavily on native browser APIs, I treated all of them as progressive enhancements with graceful fallbacks. If an API is unavailable (or denied), the app simply bypasses it without breaking the core flow.
+
+| API | Core Purpose | Browser Support Gaps |
+| --- | --- | --- |
+| **Geolocation** | Finds nearest helpers | Standard. Requires HTTPS. Fails gracefully to a default central hub if denied. |
+| **Battery Status** | Triggers "Survival Mode" (Pure black OLED) < 20% | **Chromium Only.** Removed from Firefox/Safari for fingerprinting reasons. |
+| **Web Speech** | "Voice SOS" hands-free intent filtering | **Spotty.** Solid in Chrome/Edge, largely absent in Firefox and older Safari. |
+| **Vibration** | Haptic SOS SOS feedback pattern | **No iOS Safari support.** Works on Android/Chromium. |
+| **Web Share** | One-tap native live location sharing | **Inconsistent.** Good on mobile Safari/Android, often absent on Desktop. |
 
 ### 3. Production-Grade UI/UX
 - **Glassmorphism & Micro-animations:** A modern, premium UI built with vanilla CSS variables and smooth transitions.
@@ -41,7 +47,7 @@ This project avoids generic portfolio fluff and focuses on solving complex engin
 - **Mapping:** Leaflet.js (`unpkg` CDN)
 - **Data Source:** OpenStreetMap (Overpass API)
 - **Icons:** Lucide Icons
-- **Zero Build Step:** No React, No Webpack, No Node.js required to run.
+- **Zero Build Step (For Production):** No React, No Webpack required to run the client. `package.json` and Vitest are included strictly as dev-dependencies for testing the data layer.
 
 ## 🚀 How to Run Locally
 
@@ -74,6 +80,10 @@ The codebase was deliberately refactored from a monolithic script into a clean, 
 - `/js/data.js`: Merges API results with fallback verified national helplines.
 - `/js/map.js`: Leaflet mapping engine abstraction.
 
-## ⚖️ Disclaimer
+## ⚠️ Known Limitations
 
-*OnTheSpot is a demonstration portfolio project. It is not a replacement for dialing official emergency services (e.g., 112, 911). Auto-dispatches and digital receipts are simulated for demonstration purposes.*
+As an engineering demonstration rather than a funded startup, this project operates with honest constraints:
+- **Browser Fragmentation:** Several advanced features (Battery API, Web Speech, Vibration) rely on APIs that Apple/Mozilla have deprecated or ignored. These are feature-detected and handled as progressive enhancements. Safari Private Browsing's restrictive `IndexedDB` quotas are also wrapped in `try/catch` blocks.
+- **Overpass API Throttling:** Querying live OSM data on a public instance can result in timeouts during heavy load, especially in dense urban areas. The app uses a 10-second debounce and caches recent searches to minimize spam, but public limits apply.
+- **Data Veracity:** OpenStreetMap data is crowd-sourced. A "hospital" tag might be a major trauma center or a tiny local clinic. 
+- **Disclaimer:** *OnTheSpot is a demonstration portfolio project. It is not a replacement for dialing official emergency services (e.g., 112, 911). Auto-dispatches and digital receipts are simulated.*

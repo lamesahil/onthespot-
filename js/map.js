@@ -118,7 +118,7 @@ class MapEngine {
           <div class="popup-header">
             <span style="font-size:1.3rem">${catInfo.icon}</span>
             <div>
-              <div class="popup-title">${spot.name}</div>
+              <div class="popup-title">${window.escapeHTML(spot.name)}</div>
               <div class="popup-meta">
                 <span class="spot-rating">★ ${spot.rating}</span>
                 <span>•</span>
@@ -131,12 +131,12 @@ class MapEngine {
               </div>
             </div>
           </div>
-          <p style="font-size:0.75rem; color:#94a3b8; margin: 4px 0;">${spot.specialty}</p>
+          <p style="font-size:0.75rem; color:#94a3b8; margin: 4px 0;">${window.escapeHTML(spot.specialty)}</p>
           <div class="popup-actions">
-            <a href="tel:${spot.phone ? spot.phone.replace(/\s+/g, '') : '18001021800'}" class="btn btn-call btn-sm" style="flex:1.2;">
-              <span>Call (${spot.phone})</span>
+            <a href="tel:${spot.phone ? window.escapeHTML(spot.phone).replace(/\s+/g, '') : '18001021800'}" class="btn btn-call btn-sm" style="flex:1.2;">
+              <span>Call (${window.escapeHTML(spot.phone)})</span>
             </a>
-            <button class="btn btn-primary btn-sm popup-dispatch-btn" data-id="${spot.id}" style="flex:1;">
+            <button class="btn btn-primary btn-sm popup-dispatch-btn" data-id="${window.escapeHTML(spot.id)}" style="flex:1;">
               <span>Dispatch Now</span>
             </button>
           </div>

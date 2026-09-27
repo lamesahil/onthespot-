@@ -9,37 +9,75 @@ class OverpassAPI {
     this.cacheExpiryMs = 1000 * 60 * 60 * 2; // 2 hours
     this.isFetching = false;
     this.lastFetchTime = 0;
+    this.dbPromise = this.initDB();
   }
 
-  // Load from LocalStorage Cache
-  loadFromCache(centerCoords) {
-    try {
-      const cached = localStorage.getItem(this.cacheKey);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        // Basic check if cache is for the same approximate location
-        const dLat = Math.abs(parsed.center.lat - centerCoords.lat);
-        const dLng = Math.abs(parsed.center.lng - centerCoords.lng);
-        if (dLat < 0.05 && dLng < 0.05 && (Date.now() - parsed.timestamp < this.cacheExpiryMs)) {
-          return parsed.spots;
-        }
+  initDB() {
+    return new Promise((resolve, reject) => {
+      try {
+        const request = indexedDB.open('OnTheSpotDB', 1);
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('osm_cache')) {
+            db.createObjectStore('osm_cache');
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => {
+          console.warn("IndexedDB access denied (likely Safari Private Browsing).");
+          resolve(null);
+        };
+      } catch (err) {
+        console.warn("IndexedDB not supported or blocked:", err);
+        resolve(null);
       }
-    } catch (e) {
-      console.warn("Cache read failed:", e);
-    }
-    return null;
+    });
   }
 
-  // Save to LocalStorage Cache
-  saveToCache(centerCoords, spots) {
+  // Load from IndexedDB Cache
+  async loadFromCache(centerCoords) {
     try {
-      localStorage.setItem(this.cacheKey, JSON.stringify({
+      const db = await this.dbPromise;
+      if (!db) return null;
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['osm_cache'], 'readonly');
+        const store = transaction.objectStore('osm_cache');
+        const request = store.get(this.cacheKey);
+        
+        request.onsuccess = () => {
+          const parsed = request.result;
+          if (parsed) {
+            const dLat = Math.abs(parsed.center.lat - centerCoords.lat);
+            const dLng = Math.abs(parsed.center.lng - centerCoords.lng);
+            if (dLat < 0.05 && dLng < 0.05 && (Date.now() - parsed.timestamp < this.cacheExpiryMs)) {
+              resolve(parsed.spots);
+              return;
+            }
+          }
+          resolve(null);
+        };
+        request.onerror = () => resolve(null);
+      });
+    } catch (e) {
+      console.warn("IndexedDB read failed:", e);
+      return null;
+    }
+  }
+
+  // Save to IndexedDB Cache
+  async saveToCache(centerCoords, spots) {
+    try {
+      const db = await this.dbPromise;
+      if (!db) return;
+      const transaction = db.transaction(['osm_cache'], 'readwrite');
+      const store = transaction.objectStore('osm_cache');
+      store.put({
         center: centerCoords,
         timestamp: Date.now(),
         spots: spots
-      }));
+      }, this.cacheKey);
     } catch (e) {
-      console.warn("Cache write failed:", e);
+      console.warn("IndexedDB write failed:", e);
     }
   }
 
@@ -58,7 +96,7 @@ class OverpassAPI {
 
   async fetchSpots(centerCoords) {
     // 1. Try Cache First (Offline-first / Fast load)
-    const cachedSpots = this.loadFromCache(centerCoords);
+    const cachedSpots = await this.loadFromCache(centerCoords);
     if (cachedSpots && cachedSpots.length > 0) {
       console.log("OSM Data loaded from cache!");
       return { spots: cachedSpots, fromCache: true, isStale: false };
@@ -177,5 +215,9 @@ class OverpassAPI {
     }
   }
 }
-
 window.OverpassAPI = new OverpassAPI();
+
+// Support Node.js environment for Vitest
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { OverpassAPI };
+}
